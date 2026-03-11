@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+   NamBank Biometric Authentication System
+   Frontend UI — public/index.html
+
+   Course  : HCI711S — Human Computer Interaction Security
+   Lab     : Lab 1 — Design of a Secure Biometric System
+
+   What this file does:
+   --------------------
+   This is the main user interface. It contains:
+   - 6 screens: Login, Auth, OTP Fallback, Enrolment, Dashboard, Admin
+   - All UI styling (CSS)
+   - UI logic that calls app.js (WebAuthn functions)
+   - Real-time audit log display
+   - Database viewer (for lecturer inspection)
+
+   How it connects to the backend:
+   --------------------------------
+   This file loads app.js which makes fetch() calls to the
+   Node.js server (server.js) running on localhost:3000.
+   The server handles WebAuthn challenge generation and
+   credential storage.
+  ============================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>NamBank – Biometric Banking</title>
+<style>
+/* ═══════════════════════════════════
+   CSS VARIABLES (Design Tokens)
+═══════════════════════════════════ */
+:root {
+  --navy:#1A3C6E; --blue:#2E6DB4; --lblue:#EAF1FB;
+  --green:#1A6E3C; --red:#CC3300; --gold:#C9A227;
+  --gray:#F4F6FA; --muted:#6B7280; --text:#1A1A2E;
+  --radius-lg:20px; --radius-md:12px; --radius-sm:8px;
+  --shadow:0 8px 40px rgba(26,60,110,.13);
+}
+
+/* ═══════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+  background:var(--gray);color:var(--text);}
+
+/* ═══════════════════════════════════
+   SCREEN MANAGEMENT
+   Only one screen visible at a time
+═══════════════════════════════════ */
+.screen{display:none;min-height:100vh;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* ═══════════════════════════════════
+   TOP NAVIGATION BAR
+═══════════════════════════════════ */
+.topbar{
+  background:var(--navy);color:#fff;padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{
+  width:36px;height:36px;background:var(--gold);border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:17px;color:var(--navy);flex-shrink:0;
+}
+.logo-text{font-size:18px;font-weight:700;letter-spacing:.5px;}
+.logo-sub{font-size:10px;opacity:.65;letter-spacing:1.5px;}
+
+/* ═══════════════════════════════════
+   MAIN CONTENT AREA
+═══════════════════════════════════ */
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 16px;}
+.main-top{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;}
+
+/* ═══════════════════════════════════
+   CARD COMPONENT
+═══════════════════════════════════ */
+.card{
+  background:#fff;border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:32px 28px;width:100%;max-width:420px;
+}
+.card-wide{max-width:900px;}
+.card-title{font-size:21px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.card-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5;}
+
+/* ═══════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════ */
+.fg{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--navy);margin-bottom:5px;letter-spacing:.3px;}
+input[type=text],input[type=password]{
+  width:100%;padding:13px 14px;border:1.5px solid #D1D5DB;
+  border-radius:10px;font-size:15px;background:#FAFBFF;
+  transition:border .2s;-webkit-appearance:none;
+}
+input:focus{outline:none;border-color:var(--blue);background:#fff;}
+
+/* ═══════════════════════════════════
+   BUTTON COMPONENTS
+═══════════════════════════════════ */
+.btn{
+  display:block;width:100%;padding:15px;border:none;
+  border-radius:var(--radius-md);font-size:15px;font-weight:600;
+  cursor:pointer;transition:all .2s;margin-bottom:10px;letter-spacing:.2px;
+}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:active{background:var(--blue);}
+.btn-bio{background:var(--lblue);color:var(--navy);border:2px solid var(--blue);}
+.btn-bio:active{background:var(--blue);color:#fff;}
+.btn-outline{background:#fff;color:var(--navy);border:1.5px solid #D1D5DB;}
+.btn-outline:active{border-color:var(--blue);color:var(--blue);}
+.btn-sm{width:auto;display:inline-block;padding:9px 18px;font-size:13px;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Divider with "or" text */
+.divider{text-align:center;color:var(--muted);font-size:13px;margin:10px 0;position:relative;}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:#E5E7EB;}
+.divider::before{left:0;}.divider::after{right:0;}
+
+/* ═══════════════════════════════════
+   FINGERPRINT SCANNER COMPONENT
+═══════════════════════════════════ */
+.scanner-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 0 10px;}
+.scanner{
+  width:150px;height:150px;border-radius:50%;
+  border:3px solid var(--blue);background:var(--lblue);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .3s;margin-bottom:14px;
+  position:relative;-webkit-user-select:none;user-select:none;
+}
+.scanner svg{width:78px;height:78px;transition:all .3s;}
+/* Scanner state classes — toggled by JavaScript */
+.scanner.scanning{border-color:var(--gold);animation:pulse 1.1s infinite;}
+.scanner.success{border-color:var(--green);background:#E8F5EE;}
+.scanner.fail{border-color:var(--red);background:#FFF0EE;}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,.45);}
+  50%{box-shadow:0 0 0 18px rgba(201,162,39,0);}
+}
+.scan-status{font-size:15px;font-weight:600;color:var(--muted);margin-bottom:5px;text-align:center;}
+.scan-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5;max-width:260px;}
+
+/* ═══════════════════════════════════
+   BADGE COMPONENTS
+═══════════════════════════════════ */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;}
+.bg{background:#E8F5EE;color:var(--green);}
+.bb{background:var(--lblue);color:var(--blue);}
+.br{background:#FFF0EE;color:var(--red);}
+.bo{background:#FEF9EC;color:#92740A;}
+
+/* ═══════════════════════════════════
+   ALERT BOX COMPONENTS
+═══════════════════════════════════ */
+/* Info box — blue, general information */
+.info-box{
+  background:var(--lblue);border-left:4px solid var(--blue);
+  border-radius:0 8px 8px 0;padding:10px 13px;margin-bottom:14px;
+  font-size:13px;color:var(--navy);line-height:1.6;
+}
+/* Error box — red, shown when something fails */
+.err-box{
+  background:#FFF0EE;border:1.5px solid #FFCCC0;border-radius:10px;
+  padding:12px 14px;font-size:13px;color:#8B2500;margin-bottom:12px;
+  line-height:1.6;display:none;white-space:pre-line;
+}
+/* Success box — green */
+.ok-box{
+  background:#E8F5EE;border:1.5px solid var(--green);border-radius:10px;
+  padding:10px 13px;font-size:12px;color:var(--green);font-weight:600;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+/* Warning / consent box — yellow */
+.consent-box{
+  display:flex;gap:10px;align-items:flex-start;padding:12px;
+  background:#FFFBEA;border:1.5px solid #F0D060;border-radius:9px;
+  margin-bottom:10px;font-size:13px;color:#7A5C00;line-height:1.5;
+}
+.consent-box input{margin-top:2px;flex-shrink:0;accent-color:var(--navy);width:16px;height:16px;}
+
+/* ═══════════════════════════════════
+   STEP PROGRESS INDICATOR
+═══════════════════════════════════ */
+.steps{display:flex;justify-content:center;gap:8px;margin-bottom:24px;}
+.step{width:28px;height:4px;background:#E5E7EB;border-radius:4px;transition:background .3s;}
+.step.done{background:var(--green);}
+.step.active{background:var(--blue);}
+
+/* ═══════════════════════════════════
+   DASHBOARD COMPONENTS
+═══════════════════════════════════ */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;}
+.dash-card{background:#fff;border-radius:var(--radius-md);padding:16px;box-shadow:0 2px 10px rgba(26,60,110,.08);}
+.dlabel{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.4px;margin-bottom:6px;}
+.dval{font-size:20px;font-weight:700;color:var(--navy);}
+.dsub{font-size:11px;color:var(--muted);margin-top:2px;}
+.acct-hero{background:linear-gradient(135deg,var(--navy),var(--blue));border-radius:14px;padding:24px;color:#fff;margin-bottom:16px;}
+.tx-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #F3F4F6;}
+.tx-item:last-child{border-bottom:none;}
+.tx-desc{font-size:13px;font-weight:500;}
+.tx-date{font-size:11px;color:var(--muted);}
+.tx-in{color:var(--green);font-weight:700;font-size:13px;}
+.tx-out{color:var(--red);font-weight:700;font-size:13px;}
+
+/* ═══════════════════════════════════
+   AUDIT LOG
+═══════════════════════════════════ */
+.log-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #F3F4F6;font-size:12px;}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.dg{background:var(--green);}
+.dr{background:var(--red);}
+.do{background:var(--gold);}
+
+/* ═══════════════════════════════════
+   TAB NAVIGATION
+═══════════════════════════════════ */
+.nav-tabs{display:flex;gap:4px;background:#F3F4F6;border-radius:10px;padding:4px;margin-bottom:20px;}
+.nav-tab{flex:1;padding:9px 6px;text-align:center;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .2s;}
+.nav-tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.09);}
+
+/* ═══════════════════════════════════
+   DATABASE VIEWER (Lecturer tool)
+═══════════════════════════════════ */
+.db-section{background:#1A1A2E;color:#00FF88;border-radius:10px;padding:16px;font-family:monospace;font-size:12px;line-height:1.8;overflow-x:auto;margin-bottom:12px;white-space:pre-wrap;max-height:400px;overflow-y:auto;}
+.db-label{font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.5px;margin-bottom:6px;}
+
+/* ═══════════════════════════════════
+   MISC
+═══════════════════════════════════ */
+.link{color:var(--blue);cursor:pointer;text-decoration:underline;font-size:13px;}
+.footer{background:var(--navy);color:#fff;text-align:center;padding:13px;font-size:11px;opacity:.8;}
+.sep{height:1px;background:#F3F4F6;margin:16px 0;}
+code{background:#F0F4FA;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace;color:var(--navy);}
+
+/* ═══════════════════════════════════
+   RESPONSIVE — Mobile
+═══════════════════════════════════ */
+@media(max-width:480px){
+  .card{padding:24px 18px;border-radius:16px;}
+  .topbar{padding:12px 16px;}
+  .dash-grid{grid-template-columns:1fr 1fr;}
+  .acct-hero{padding:20px;}
+  .main,.main-top{padding:16px 12px;}
+  .scanner{width:130px;height:130px;}
+  .scanner svg{width:66px;height:66px;}
+}
+@media(max-width:360px){.dash-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 1: LOGIN
+     Entry point. User can choose password or fingerprint.
+════════════════════════════════════════════════════ -->
+<div class="screen active" id="s-login">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <div><div class="logo-text">NamBank</div><div class="logo-sub">ONLINE BANKING</div></div>
+    </div>
+    <span style="font-size:12px;opacity:.7;">🔒 TLS 1.3 Secure</span>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="info-box">🔒 WebAuthn/FIDO2 biometric authentication enabled — your fingerprint never leaves your device</div>
+      <div class="card-title">Welcome back</div>
+      <div class="card-sub">Sign in to your NamBank account</div>
+
+      <div class="fg">
+        <label>Username / Account Number</label>
+        <input type="text" id="login-user" value="john.doe@nambank" autocomplete="username"/>
+      </div>
+      <div class="fg">
+        <label>Password</label>
+        <input type="password" id="login-pass" value="••••••••" autocomplete="current-password"/>
+      </div>
+
+      <!-- Password login (simulated for demo) -->
+      <button class="btn btn-primary" onclick="goTo('s-dash');setMethod('Password')">
+        🔑 Sign In with Password
+      </button>
+
+      <div class="divider">or authenticate with biometrics</div>
+
+      <!-- Fingerprint login — triggers real WebAuthn -->
+      <button class="btn btn-bio" id="bio-btn" onclick="initBioLogin()">
+        👆 Sign In with Fingerprint
+      </button>
+
+      <div style="text-align:center;margin-top:14px;">
+        <span class="link" onclick="goToEnroll()">New user? Enrol your fingerprint →</span>
+      </div>
+      <div style="text-align:center;margin-top:8px;">
+        <span class="link" onclick="goTo('s-admin')">Admin Panel</span>
+        &nbsp;·&nbsp;
+        <span class="link" onclick="goTo('s-dbview')">Database View</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">NamBank Financial Services · Supervised by Bank of Namibia · AES-256 Encrypted</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 2: FINGERPRINT AUTHENTICATION
+     Real WebAuthn fingerprint verification screen.
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-auth">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <div><div class="logo-text">NamBank</div><div class="logo-sub">BIOMETRIC AUTH</div></div>
+    </div>
+    <span class="badge bb">🛡 FIDO2 / WebAuthn</span>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">Fingerprint Verification</div>
+      <div class="card-sub">Your device's fingerprint sensor will activate automatically</div>
+
+      <!-- Green badge confirming real WebAuthn -->
+      <div class="ok-box">
+        ✓ Real WebAuthn API active — fingerprint processed on your device only
+      </div>
+
+      <!-- Error box — hidden until an error occurs -->
+      <div class="err-box" id="auth-err"></div>
+
+      <!-- Fingerprint scanner UI -->
+      <div class="scanner-wrap">
+        <div class="scanner" id="auth-scan" onclick="retryAuth()" role="button" aria-label="Tap to scan fingerprint">
+          <!-- SVG fingerprint icon -->
+          <svg viewBox="0 0 100 100" fill="none">
+            <path d="M50 14C30 14 14 30 14 50" stroke="#2E6DB4" stroke-width="4.5" stroke-linecap="round"/>
+            <path d="M50 22C34 22 22 34 22 50" stroke="#2E6DB4" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M50 30C38 30 30 38 30 50" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M50 38C44 38 38 44 38 50" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M50 14C70 14 86 30 86 50" stroke="#1A3C6E" stroke-width="4.5" stroke-linecap="round"/>
+            <path d="M50 22C66 22 78 34 78 50" stroke="#1A3C6E" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M50 30C62 30 70 38 70 50" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+            <path d="M50 38C56 38 62 44 62 50" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+            <path d="M30 50C30 62 38 70 50 70" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M38 50C38 57 44 62 50 62" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M70 50C70 62 62 70 50 70" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+            <path d="M62 50C62 57 56 62 50 62" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="50" cy="50" r="5" fill="#2E6DB4"/>
+          </svg>
+        </div>
+        <div class="scan-status" id="auth-status">Activating fingerprint sensor…</div>
+        <div class="scan-hint" id="auth-hint">Your fingerprint data never leaves this device</div>
+      </div>
+
+      <button class="btn btn-outline" onclick="goTo('s-otp')">🔐 Use One-Time Password instead</button>
+      <button class="btn btn-outline" style="margin-top:4px" onclick="goTo('s-login')">← Back to Login</button>
+    </div>
+  </div>
+  <div class="footer">NamBank · Biometric data processed locally via FIDO2 · Never transmitted</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 3: OTP FALLBACK
+     Used when fingerprint fails or device unsupported.
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-otp">
+  <div class="topbar">
+    <div class="logo"><div class="logo-icon">N</div>
+      <div><div class="logo-text">NamBank</div><div class="logo-sub">OTP FALLBACK</div></div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">One-Time Password</div>
+      <div class="card-sub">A 6-digit OTP has been sent to your registered phone <strong>•••• 4521</strong></div>
+      <div class="info-box" style="background:#FFFBEA;border-color:#F0D060;color:#7A5C00;">
+        ⚠️ Fallback authentication — fingerprint unavailable or failed
+      </div>
+      <div class="fg" style="margin-top:16px;">
+        <label>Enter OTP Code</label>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               style="letter-spacing:10px;font-size:24px;text-align:center;" value="847291"/>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+        Expires in <strong>4:32</strong> · <span class="link">Resend OTP</span>
+      </div>
+      <button class="btn btn-primary" onclick="goTo('s-dash');setMethod('OTP Fallback')">Verify OTP →</button>
+      <button class="btn btn-outline" onclick="goTo('s-auth')">← Try Fingerprint Again</button>
+    </div>
+  </div>
+  <div class="footer">NamBank Financial Services</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 4: FINGERPRINT ENROLMENT
+     3-step flow: Consent → Scan → Complete
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-enroll">
+  <div class="topbar">
+    <div class="logo"><div class="logo-icon">N</div>
+      <div><div class="logo-text">NamBank</div><div class="logo-sub">FINGERPRINT ENROLMENT</div></div>
+    </div>
+    <span class="badge bo">Step <span id="e-stepnum">1</span> of 3</span>
+  </div>
+  <div class="main">
+    <div class="card">
+      <!-- Step progress indicator -->
+      <div class="steps">
+        <div class="step active" id="es0"></div>
+        <div class="step" id="es1"></div>
+        <div class="step" id="es2"></div>
+      </div>
+      <div class="card-title" id="e-title">Consent & Information</div>
+      <div class="card-sub" id="e-sub">Read and accept before registering your fingerprint</div>
+      <div class="err-box" id="enroll-err"></div>
+
+      <!-- ── Step 1: Consent ── -->
+      <div id="es-1">
+        <div class="info-box">
+          🛡 <strong>How your data is protected:</strong><br>
+          WebAuthn/FIDO2 processes your fingerprint entirely on your device.
+          NamBank's server only receives a cryptographic public key.
+          No fingerprint image or template is ever transmitted.
+        </div>
+        <div class="consent-box">
+          <input type="checkbox" id="c1"/>
+          <label for="c1">I understand my fingerprint template stays on my device only. NamBank stores a public key, not my fingerprint.</label>
+        </div>
+        <div class="consent-box">
+          <input type="checkbox" id="c2"/>
+          <label for="c2">I consent to biometric credential registration as per the <span class="link">Biometric Data Policy</span>.</label>
+        </div>
+        <div class="consent-box">
+          <input type="checkbox" id="c3"/>
+          <label for="c3">I understand I can revoke this credential at any time from Account Settings.</label>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="checkConsent()">
+          I Agree — Continue →
+        </button>
+        <button class="btn btn-outline" onclick="goTo('s-login')">← Cancel</button>
+      </div>
+
+      <!-- ── Step 2: Fingerprint Scan ── -->
+      <div id="es-2" style="display:none;">
+        <div class="ok-box">✓ Real WebAuthn — your device fingerprint reader will activate now</div>
+        <div class="scanner-wrap">
+          <div class="scanner" id="enroll-scan" onclick="retryEnroll()" role="button" aria-label="Tap to enrol fingerprint">
+            <svg viewBox="0 0 100 100" fill="none">
+              <path d="M50 14C30 14 14 30 14 50" stroke="#2E6DB4" stroke-width="4.5" stroke-linecap="round"/>
+              <path d="M50 22C34 22 22 34 22 50" stroke="#2E6DB4" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M50 30C38 30 30 38 30 50" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+              <path d="M50 14C70 14 86 30 86 50" stroke="#1A3C6E" stroke-width="4.5" stroke-linecap="round"/>
+              <path d="M50 22C66 22 78 34 78 50" stroke="#1A3C6E" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M50 30C62 30 70 38 70 50" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+              <path d="M30 50C30 62 38 70 50 70" stroke="#2E6DB4" stroke-width="3" stroke-linecap="round"/>
+              <path d="M70 50C70 62 62 70 50 70" stroke="#1A3C6E" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="50" cy="50" r="5" fill="#2E6DB4"/>
+            </svg>
+          </div>
+          <div class="scan-status" id="enroll-status">Activating fingerprint sensor…</div>
+          <div class="scan-hint">Your device's own fingerprint dialog will appear</div>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Success ── -->
+      <div id="es-3" style="display:none;text-align:center;padding:10px 0;">
+        <div style="font-size:60px;margin-bottom:14px;">✅</div>
+        <div class="card-title" style="text-align:center;color:var(--green);margin-bottom:10px;">Enrolment Complete!</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6;">
+          Your fingerprint credential has been registered. You can now log in with your fingerprint on this device.
+        </p>
+        <div class="badge bg" style="margin:0 auto 20px;display:table;">✓ FIDO2 credential stored on device</div>
+        <button class="btn btn-primary" onclick="goTo('s-login')">← Go to Login</button>
+      </div>
+    </div>
+  </div>
+  <div class="footer">NamBank Financial Services</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 5: DASHBOARD
+     Post-login account overview.
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-dash">
+  <div class="topbar">
+    <div class="logo"><div class="logo-icon">N</div>
+      <div><div class="logo-text">NamBank</div><div class="logo-sub">ONLINE BANKING</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="badge bg" id="d-badge">👆 Biometric</span>
+      <button class="btn btn-outline btn-sm"
+        style="color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.1);margin:0;"
+        onclick="goTo('s-login')">Logout</button>
+    </div>
+  </div>
+  <div class="main-top">
+    <div class="card card-wide" style="max-width:860px;">
+      <div class="nav-tabs">
+        <div class="nav-tab active" onclick="dtab(this,'d-home')">🏠 Overview</div>
+        <div class="nav-tab" onclick="dtab(this,'d-txn')">💳 Transactions</div>
+        <div class="nav-tab" onclick="dtab(this,'d-sec')">🔐 Security</div>
+      </div>
+
+      <!-- Overview Tab -->
+      <div id="d-home">
+        <div class="acct-hero">
+          <div style="font-size:13px;opacity:.8;margin-bottom:3px;">John Doe · Primary Account</div>
+          <div style="font-size:12px;opacity:.55;letter-spacing:2px;margin-bottom:18px;">NAMBK •••• •••• 4521</div>
+          <div style="font-size:11px;opacity:.7;">AVAILABLE BALANCE</div>
+          <div style="font-size:34px;font-weight:800;">N$ 24,850.00</div>
+        </div>
+        <div class="dash-grid">
+          <div class="dash-card"><div class="dlabel">SAVINGS</div><div class="dval">N$8,200</div><div class="dsub">+N$500 this month</div></div>
+          <div class="dash-card"><div class="dlabel">LAST LOGIN</div><div class="dval" style="font-size:13px;" id="d-method">👆 Fingerprint</div><div class="dsub" id="d-time">Just now</div></div>
+          <div class="dash-card"><div class="dlabel">AUTH STRENGTH</div><div class="dval" style="font-size:13px;color:var(--green);">● High</div><div class="dsub">FIDO2 hardware</div></div>
+        </div>
+      </div>
+
+      <!-- Transactions Tab -->
+      <div id="d-txn" style="display:none;">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:14px;">Recent Transactions</div>
+        <div class="tx-item"><div><div class="tx-desc">Shoprite Windhoek</div><div class="tx-date">04 Mar 2026</div></div><div class="tx-out">- N$342.00</div></div>
+        <div class="tx-item"><div><div class="tx-desc">Salary — NamTech Ltd</div><div class="tx-date">01 Mar 2026</div></div><div class="tx-in">+ N$15,000.00</div></div>
+        <div class="tx-item"><div><div class="tx-desc">MTC Mobile Top-Up</div><div class="tx-date">28 Feb 2026</div></div><div class="tx-out">- N$50.00</div></div>
+        <div class="tx-item"><div><div class="tx-desc">Transfer to Savings</div><div class="tx-date">28 Feb 2026</div></div><div class="tx-out">- N$500.00</div></div>
+        <div class="tx-item"><div><div class="tx-desc">NUST Tuition Fee</div><div class="tx-date">25 Feb 2026</div></div><div class="tx-out">- N$3,200.00</div></div>
+        <div class="tx-item"><div><div class="tx-desc">Rental Income</div><div class="tx-date">20 Feb 2026</div></div><div class="tx-in">+ N$4,500.00</div></div>
+      </div>
+
+      <!-- Security Tab -->
+      <div id="d-sec" style="display:none;">
+        <div style="font-weight:700;color:var(--navy);margin-bottom:14px;">Biometric Security Settings</div>
+        <div class="info-box">🔒 FIDO2/WebAuthn — NamBank never stores your fingerprint data, only a public key.</div>
+        <div id="cred-list" style="margin-bottom:16px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-bio btn-sm" onclick="goToEnroll()">+ Enrol New Credential</button>
+          <button class="btn btn-outline btn-sm" onclick="revokeUI()">Revoke Credential</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">NamBank Financial Services · Session Active · AES-256 Encrypted</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 6: ADMIN PANEL
+     Authentication audit log and system stats.
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-admin">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon" style="background:#CC3300;color:#fff;">A</div>
+      <div><div class="logo-text">Admin Panel</div><div class="logo-sub">BIOMETRIC MANAGEMENT</div></div>
+    </div>
+    <button class="btn btn-outline btn-sm"
+      style="color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.1);margin:0;"
+      onclick="goTo('s-login')">Logout</button>
+  </div>
+  <div class="main-top">
+    <div class="card card-wide" style="max-width:900px;">
+      <div class="card-title">Biometric System — Admin Dashboard</div>
+      <div class="card-sub">Monitor enrollments, authentication events, and security incidents in real time</div>
+
+      <div class="dash-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+        <div class="dash-card"><div class="dlabel">ENROLLED USERS</div><div class="dval">1,284</div><div class="dsub">+12 today</div></div>
+        <div class="dash-card"><div class="dlabel">AUTH SUCCESS (24H)</div><div class="dval" style="color:var(--green);">98.7%</div><div class="dsub">FAR: 0.003%</div></div>
+        <div class="dash-card"><div class="dlabel">OTP FALLBACKS</div><div class="dval" style="color:var(--gold);">37</div><div class="dsub">Last 24h</div></div>
+        <div class="dash-card"><div class="dlabel">REVOKED</div><div class="dval" style="color:var(--red);">2</div><div class="dsub">Today</div></div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:700;color:var(--navy);">Live Audit Log</div>
+        <button class="btn btn-outline btn-sm" onclick="refreshAuditLog()">🔄 Refresh</button>
+      </div>
+      <div id="audit-log">
+        <div class="log-item"><div class="dot dg"></div><div><strong>john.doe@nambank</strong> — WebAuthn Auth Success<div style="color:var(--muted);">09:14 · 192.168.1.12</div></div></div>
+        <div class="log-item"><div class="dot dr"></div><div><strong>maria.shilongo</strong> — Biometric Failed → OTP Fallback<div style="color:var(--muted);">08:52 · 41.63.14.22</div></div></div>
+        <div class="log-item"><div class="dot dr"></div><div><strong>unknown</strong> — Liveness Check Failed (spoofing blocked) ⚠️<div style="color:var(--muted);">07:30 · 45.33.10.11</div></div></div>
+        <div class="log-item"><div class="dot do"></div><div><strong>admin@nambank</strong> — Credential Revoked: t.smith<div style="color:var(--muted);">06:15 · Admin action</div></div></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="goTo('s-dbview')">🗄 View Database</button>
+        <button class="btn btn-outline btn-sm" onclick="goTo('s-login')">← Exit Admin</button>
+      </div>
+    </div>
+  </div>
+  <div class="footer">NamBank · All admin actions are immutably audited</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SCREEN 7: DATABASE VIEWER (Lecturer Tool)
+     Shows exactly what data the server stores —
+     demonstrating that NO biometric data is stored.
+════════════════════════════════════════════════════ -->
+<div class="screen" id="s-dbview">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon" style="background:#1A6E3C;">🗄</div>
+      <div><div class="logo-text">Database View</div><div class="logo-sub">LECTURER INSPECTION TOOL</div></div>
+    </div>
+    <button class="btn btn-outline btn-sm"
+      style="color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.1);margin:0;"
+      onclick="goTo('s-login')">← Back</button>
+  </div>
+  <div class="main-top">
+    <div class="card card-wide" style="max-width:900px;">
+      <div class="card-title">NamBank Biometric Database</div>
+      <div class="card-sub">This view shows exactly what is stored on the NamBank server — demonstrating that ZERO biometric data is ever stored</div>
+
+      <div class="ok-box" style="margin-bottom:16px;">
+        ✓ This database contains no fingerprint images, no fingerprint templates, no private keys
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="loadDbView()">🔄 Load Live Database</button>
+        <button class="btn btn-outline btn-sm" onclick="goToEnroll()">+ Enrol a Test User</button>
+      </div>
+
+      <div class="db-label">SERVER DATABASE CONTENTS:</div>
+      <div class="db-section" id="db-output">
+Click "Load Live Database" to fetch real-time data from the server.
+
+After enrolling a fingerprint, you will see:
+  ✓ Username stored
+  ✓ Public key stored (cryptographic — safe to store)
+  ✓ Credential ID stored
+  ✗ NO fingerprint image
+  ✗ NO fingerprint template
+  ✗ NO private key
+      </div>
+
+      <div class="db-label" style="margin-top:16px;">SECURITY ARCHITECTURE NOTE:</div>
+      <div class="info-box">
+        <strong>Why this is secure:</strong><br>
+        The public key stored in this database is mathematically useless without the matching private key.
+        The private key is sealed inside the device's TPM (Trusted Platform Module) or Secure Enclave.
+        It can never be exported. Even if this entire database is stolen, no attacker can authenticate
+        as any user or reconstruct any fingerprint. This is the fundamental security advantage of
+        WebAuthn/FIDO2 over traditional biometric template storage systems.
+      </div>
+    </div>
+  </div>
+  <div class="footer">NamBank · Lecturer Inspection Tool · HCI711S Lab 1</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     LOAD EXTERNAL JAVASCRIPT
+     app.js handles all WebAuthn logic
+════════════════════════════════════════════════════ -->
+<script src="app.js"></script>
+
+<script>
+/**
+ * ============================================================
+ *  UI CONTROLLER — inline JavaScript
+ *  Handles screen navigation and calls NamBankAuth functions
+ *  from app.js for all WebAuthn operations.
+ * ============================================================
+ */
+
+// ── Navigation ─────────────────────────────────────────────
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function setMethod(m) {
+  NamBankAuth.AppState.authMethod = m;
+  refreshDash();
+}
+
+function goToEnroll() {
+  ['c1','c2','c3'].forEach(id => document.getElementById(id).checked = false);
+  showEnrollStep(0);
+  hideErr('enroll-err');
+  goTo('s-enroll');
+}
+
+// ── Bio Login Entry Point ──────────────────────────────────
+/**
+ * Called when user taps "Sign In with Fingerprint".
+ * Navigates to auth screen and immediately triggers WebAuthn.
+ */
+function initBioLogin() {
+  if (!window.PublicKeyCredential) {
+    alert('WebAuthn is not supported in this browser.\nPlease use Chrome, Safari, Edge, or Firefox.');
+    return;
+  }
+  setScan('auth-scan','auth-status','auth-hint','','Activating fingerprint sensor…','Your fingerprint will be requested now');
+  hideErr('auth-err');
+  goTo('s-auth');
+  // Small delay for screen transition, then trigger real fingerprint prompt
+  setTimeout(runAuth, 350);
+}
+
+// ── WebAuthn Auth ──────────────────────────────────────────
+let authRunning = false;
+
+async function runAuth() {
+  if (authRunning) return;
+  authRunning = true;
+  const username = document.getElementById('login-user').value.trim();
+  hideErr('auth-err');
+  setScan('auth-scan','auth-status','auth-hint','scanning','Scanning your fingerprint…','Place your finger on the sensor now');
+
+  try {
+    // ★ Calls navigator.credentials.get() in app.js → triggers real fingerprint ★
+    const result = await NamBankAuth.authenticateFingerprint(username);
+
+    setScan('auth-scan','auth-status','auth-hint','success','✓ Fingerprint Verified!','Redirecting to your account…');
+    addLogEntry('success', `${username} — WebAuthn Auth Success`);
+    setMethod('WebAuthn Fingerprint');
+    setTimeout(() => goTo('s-dash'), 1100);
+
+  } catch (err) {
+    const info = NamBankAuth.classifyWebAuthnError(err);
+    setScan('auth-scan','auth-status','auth-hint','fail', err.name === 'NotAllowedError' ? 'Cancelled — tap to retry' : '✗ Authentication failed', 'Tap the sensor to try again');
+    if (err.name !== 'NotAllowedError') showErr('auth-err', info.message);
+    addLogEntry('fail', `${username} — Auth Failed: ${err.name}`);
+    setTimeout(() => {
+      if (document.getElementById('auth-scan').classList.contains('fail')) {
+        setScan('auth-scan','auth-status','auth-hint','','Tap to try again','Your fingerprint data never leaves this device');
+      }
+    }, 4000);
+  } finally {
+    authRunning = false;
+  }
+}
+
+// Allow tap-to-retry on the scanner
+function retryAuth() {
+  if (!authRunning) runAuth();
+}
+
+// ── WebAuthn Enrolment ─────────────────────────────────────
+function checkConsent() {
+  if (!['c1','c2','c3'].every(id => document.getElementById(id).checked)) {
+    showErr('enroll-err','Please accept all three items to continue.');
+    return;
+  }
+  hideErr('enroll-err');
+  showEnrollStep(1);
+  // Auto-trigger enrolment after step transition
+  setTimeout(runEnroll, 400);
+}
+
+let enrollRunning = false;
+
+async function runEnroll() {
+  if (enrollRunning) return;
+  enrollRunning = true;
+  const username = document.getElementById('login-user').value.trim();
+  hideErr('enroll-err');
+  setScan('enroll-scan','enroll-status',null,'scanning','Activating fingerprint sensor…',null);
+
+  try {
+    // ★ Calls navigator.credentials.create() in app.js → triggers real fingerprint ★
+    const result = await NamBankAuth.enrollFingerprint(username);
+
+    setScan('enroll-scan','enroll-status',null,'success','✓ Fingerprint enrolled!',null);
+    addLogEntry('success', `${username} — Fingerprint Enrolment Complete`);
+    setTimeout(() => showEnrollStep(2), 900);
+
+  } catch (err) {
+    if (err.name === 'InvalidStateError') {
+      // Credential already exists — treat as success
+      setScan('enroll-scan','enroll-status',null,'success','Already enrolled — you can log in',null);
+      setTimeout(() => showEnrollStep(2), 800);
+    } else if (err.name === 'NotAllowedError') {
+      setScan('enroll-scan','enroll-status',null,'fail','Cancelled — tap to retry',null);
+    } else {
+      const info = NamBankAuth.classifyWebAuthnError(err);
+      setScan('enroll-scan','enroll-status',null,'fail','Enrolment failed',null);
+      showErr('enroll-err', info.message);
+    }
+    addLogEntry('fail', `Enrolment failed: ${err.name}`);
+    setTimeout(() => {
+      if (document.getElementById('enroll-scan').classList.contains('fail')) {
+        setScan('enroll-scan','enroll-status',null,'','Tap to try again',null);
+      }
+    }, 3500);
+  } finally {
+    enrollRunning = false;
+  }
+}
+
+function retryEnroll() {
+  if (!enrollRunning) runEnroll();
+}
+
+// ── Enrolment Step UI ──────────────────────────────────────
+const E_TITLES = ['Consent & Information','Scan Your Fingerprint','Enrolment Complete'];
+const E_SUBS   = ['Read and accept before registering','Your device fingerprint prompt is active','Your credential is ready to use'];
+
+function showEnrollStep(p) {
+  ['es-1','es-2','es-3'].forEach((id,i) => document.getElementById(id).style.display = i===p?'':'none');
+  for (let i=0;i<3;i++) document.getElementById('es'+i).className='step'+(i<p?' done':i===p?' active':'');
+  document.getElementById('e-stepnum').textContent = p+1;
+  document.getElementById('e-title').textContent   = E_TITLES[p];
+  document.getElementById('e-sub').textContent     = E_SUBS[p];
+}
+
+// ── Dashboard ──────────────────────────────────────────────
+function refreshDash() {
+  const S = NamBankAuth.AppState;
+  const t = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('d-time').textContent   = `Today, ${t}`;
+  document.getElementById('d-method').textContent =
+    S.authMethod === 'WebAuthn Fingerprint' ? '👆 Fingerprint (WebAuthn)' :
+    S.authMethod === 'OTP Fallback'         ? '🔐 OTP Fallback' : '🔑 Password';
+  document.getElementById('d-badge').textContent =
+    S.authMethod === 'WebAuthn Fingerprint' ? '👆 Biometric Session' :
+    S.authMethod === 'OTP Fallback'         ? '🔐 OTP Session' : '🔑 Password Session';
+
+  const cl = document.getElementById('cred-list');
+  cl.innerHTML = S.credId
+    ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #F3F4F6;">
+         <div>
+           <div style="font-weight:600;font-size:14px;">${S.credName || 'Fingerprint Credential'}</div>
+           <div style="font-size:11px;color:var(--muted);">Credential ID: ${S.credId.substring(0,28)}…</div>
+           <div style="font-size:11px;color:var(--muted);">Stored: Public key only · No biometric data</div>
+         </div>
+         <span class="badge bg">Active</span>
+       </div>`
+    : `<div style="font-size:13px;color:var(--muted);padding:10px 0;">No credentials enrolled yet. <span class="link" onclick="goToEnroll()">Enrol now →</span></div>`;
+}
+
+function revokeUI() {
+  const S = NamBankAuth.AppState;
+  if (!S.credId) { alert('No credential to revoke.'); return; }
+  if (!confirm('Revoke your fingerprint credential? You will need to re-enrol to use biometric login.')) return;
+  S.credId = S.credName = null;
+  localStorage.removeItem('nb_cred_id');
+  localStorage.removeItem('nb_cred_name');
+  refreshDash();
+  addLogEntry('gold','User revoked fingerprint credential');
+  alert('Credential revoked. Please enrol again to use biometric login.');
+}
+
+function dtab(el, id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['d-home','d-txn','d-sec'].forEach(i => document.getElementById(i).style.display = i===id?'':'none');
+  if (id === 'd-sec') refreshDash();
+}
+
+// ── Database View ──────────────────────────────────────────
+async function loadDbView() {
+  const out = document.getElementById('db-output');
+  out.textContent = 'Loading from server…';
+  try {
+    const data = await NamBankAuth.apiGet('/api/database-view');
+    out.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    out.textContent = 'Could not connect to server.\n\nMake sure the server is running:\n  node server/server.js\n\nThen open: http://localhost:3000\n\nError: ' + e.message;
+  }
+}
+
+// ── Audit Log ──────────────────────────────────────────────
+function addLogEntry(type, msg) {
+  const cls  = {success:'dg',fail:'dr',gold:'do'}[type] || 'do';
+  const time = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const el   = document.createElement('div');
+  el.className = 'log-item';
+  el.innerHTML = `<div class="dot ${cls}"></div><div><strong>${msg}</strong><div style="color:var(--muted);">${time} · This device</div></div>`;
+  const log = document.getElementById('audit-log');
+  log.insertBefore(el, log.firstChild);
+}
+
+async function refreshAuditLog() {
+  try {
+    const data = await NamBankAuth.apiGet('/api/audit-log');
+    if (data.log && data.log.length > 0) {
+      const log = document.getElementById('audit-log');
+      data.log.forEach(entry => {
+        const type = entry.success ? 'success' : 'fail';
+        const cls  = type === 'success' ? 'dg' : 'dr';
+        const el   = document.createElement('div');
+        el.className = 'log-item';
+        el.innerHTML = `<div class="dot ${cls}"></div><div><strong>${entry.username}</strong> — ${entry.event}<div style="color:var(--muted);">${new Date(entry.timestamp).toLocaleTimeString()} · ${entry.ip}</div></div>`;
+        log.insertBefore(el, log.firstChild);
+      });
+    }
+  } catch (e) {
+    console.log('Could not refresh audit log from server:', e.message);
+  }
+}
+
+// ── Scanner UI Helpers ─────────────────────────────────────
+function setScan(sid, stid, shid, cls, status, hint) {
+  document.getElementById(sid).className = 'scanner' + (cls ? ' '+cls : '');
+  if (stid) document.getElementById(stid).textContent = status;
+  if (shid && hint !== null) document.getElementById(shid).textContent = hint;
+}
+
+function showErr(id, msg) {
+  const e = document.getElementById(id);
+  e.style.whiteSpace = 'pre-line';
+  e.textContent = msg;
+  e.style.display = 'block';
+}
+function hideErr(id) { document.getElementById(id).style.display = 'none'; }
+
+// ── Initialise ─────────────────────────────────────────────
+refreshDash();
+</script>
+</body>
+</html>

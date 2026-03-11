@@ -1,0 +1,58 @@
+name: Deploy NamBank to Railway
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ── Job 1: Test ──────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check server starts correctly
+        run: |
+          timeout 10 node server/server.js &
+          sleep 4
+          curl -f http://localhost:3000/api/status || exit 1
+          echo "✅ Server health check passed"
+        env:
+          PORT: 3000
+
+      - name: Verify public files exist
+        run: |
+          test -f public/index.html && echo "✅ index.html present"
+          test -f public/app.js     && echo "✅ app.js present"
+
+  # ── Job 2: Deploy ────────────────────────────────────────
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: test           # only deploy if tests pass
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

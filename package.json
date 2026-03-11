@@ -1,0 +1,18 @@
+{
+  "name": "nambank-biometric",
+  "version": "3.0.0",
+  "description": "NamBank Fingerprint Biometric Authentication — HCI711S Lab 1",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev":   "node server/server.js",
+    "test":  "node -e \"require('./server/server.js')\" & sleep 3 && curl -sf http://localhost:3000/api/status && echo ' Tests passed' && kill %1"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "@simplewebauthn/server": "^9.0.3",
+    "express": "^4.18.2",
+    "mongodb": "^6.3.0"
+  },
+  "license": "MIT"
+}
