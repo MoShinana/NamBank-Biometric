@@ -6,22 +6,6 @@
 
    Course  : HCI711S — Human Computer Interaction Security
    Lab     : Lab 1 — Design of a Secure Biometric System
-
-   What this file does:
-   --------------------
-   This is the main user interface. It contains:
-   - 6 screens: Login, Auth, OTP Fallback, Enrolment, Dashboard, Admin
-   - All UI styling (CSS)
-   - UI logic that calls app.js (WebAuthn functions)
-   - Real-time audit log display
-   - Database viewer (for lecturer inspection)
-
-   How it connects to the backend:
-   --------------------------------
-   This file loads app.js which makes fetch() calls to the
-   Node.js server (server.js) running on localhost:3000.
-   The server handles WebAuthn challenge generation and
-   credential storage.
   ============================================================
 -->
 <html lang="en">
@@ -32,9 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>NamBank – Biometric Banking</title>
 <style>
-/* ═══════════════════════════════════
-   CSS VARIABLES (Design Tokens)
-═══════════════════════════════════ */
+
 :root {
   --navy:#1A3C6E; --blue:#2E6DB4; --lblue:#EAF1FB;
   --green:#1A6E3C; --red:#CC3300; --gold:#C9A227;
@@ -43,23 +25,13 @@
   --shadow:0 8px 40px rgba(26,60,110,.13);
 }
 
-/* ═══════════════════════════════════
-   RESET & BASE
-═══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
   background:var(--gray);color:var(--text);}
 
-/* ═══════════════════════════════════
-   SCREEN MANAGEMENT
-   Only one screen visible at a time
-═══════════════════════════════════ */
 .screen{display:none;min-height:100vh;flex-direction:column;}
 .screen.active{display:flex;}
 
-/* ═══════════════════════════════════
-   TOP NAVIGATION BAR
-═══════════════════════════════════ */
 .topbar{
   background:var(--navy);color:#fff;padding:14px 20px;
   display:flex;align-items:center;justify-content:space-between;
@@ -74,15 +46,9 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-
 .logo-text{font-size:18px;font-weight:700;letter-spacing:.5px;}
 .logo-sub{font-size:10px;opacity:.65;letter-spacing:1.5px;}
 
-/* ═══════════════════════════════════
-   MAIN CONTENT AREA
-═══════════════════════════════════ */
 .main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 16px;}
 .main-top{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;}
 
-/* ═══════════════════════════════════
-   CARD COMPONENT
-═══════════════════════════════════ */
 .card{
   background:#fff;border-radius:var(--radius-lg);
   box-shadow:var(--shadow);padding:32px 28px;width:100%;max-width:420px;
@@ -91,9 +57,6 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-
 .card-title{font-size:21px;font-weight:700;color:var(--navy);margin-bottom:5px;}
 .card-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5;}
 
-/* ═══════════════════════════════════
-   FORM ELEMENTS
-═══════════════════════════════════ */
 .fg{margin-bottom:16px;}
 label{display:block;font-size:12px;font-weight:600;color:var(--navy);margin-bottom:5px;letter-spacing:.3px;}
 input[type=text],input[type=password]{
@@ -103,9 +66,6 @@ input[type=text],input[type=password]{
 }
 input:focus{outline:none;border-color:var(--blue);background:#fff;}
 
-/* ═══════════════════════════════════
-   BUTTON COMPONENTS
-═══════════════════════════════════ */
 .btn{
   display:block;width:100%;padding:15px;border:none;
   border-radius:var(--radius-md);font-size:15px;font-weight:600;
@@ -121,14 +81,10 @@ input:focus{outline:none;border-color:var(--blue);background:#fff;}
 .btn-danger{background:var(--red);color:#fff;}
 .btn:disabled{opacity:.4;cursor:not-allowed;}
 
-/* Divider with "or" text */
 .divider{text-align:center;color:var(--muted);font-size:13px;margin:10px 0;position:relative;}
 .divider::before,.divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:#E5E7EB;}
 .divider::before{left:0;}.divider::after{right:0;}
 
-/* ═══════════════════════════════════
-   FINGERPRINT SCANNER COMPONENT
-═══════════════════════════════════ */
 .scanner-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 0 10px;}
 .scanner{
   width:150px;height:150px;border-radius:50%;
@@ -149,9 +105,6 @@ input:focus{outline:none;border-color:var(--blue);background:#fff;}
 .scan-status{font-size:15px;font-weight:600;color:var(--muted);margin-bottom:5px;text-align:center;}
 .scan-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5;max-width:260px;}
 
-/* ═══════════════════════════════════
-   BADGE COMPONENTS
-═══════════════════════════════════ */
 .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;}
 .bg{background:#E8F5EE;color:var(--green);}
 .bb{background:var(--lblue);color:var(--blue);}
@@ -179,7 +132,7 @@ input:focus{outline:none;border-color:var(--blue);background:#fff;}
   padding:10px 13px;font-size:12px;color:var(--green);font-weight:600;
   margin-bottom:12px;display:flex;align-items:center;gap:8px;
 }
-/* Warning / consent box — yellow */
+/* Warning     — yellow */
 .consent-box{
   display:flex;gap:10px;align-items:flex-start;padding:12px;
   background:#FFFBEA;border:1.5px solid #F0D060;border-radius:9px;
@@ -278,11 +231,11 @@ code{background:#F0F4FA;padding:2px 6px;border-radius:4px;font-size:12px;font-fa
 
       <div class="fg">
         <label>Username / Account Number</label>
-        <input type="text" id="login-user" value="john.doe@nambank" autocomplete="username"/>
+        <input type="text" id="login-user" value="224013440" autocomplete="username"/>
       </div>
       <div class="fg">
         <label>Password</label>
-        <input type="password" id="login-pass" value="••••••••" autocomplete="current-password"/>
+        <input type="password" id="login-pass" value="" autocomplete="current-password"/>
       </div>
 
       <!-- Password login (simulated for demo) -->
@@ -511,7 +464,7 @@ code{background:#F0F4FA;padding:2px 6px;border-radius:4px;font-size:12px;font-fa
       <!-- Overview Tab -->
       <div id="d-home">
         <div class="acct-hero">
-          <div style="font-size:13px;opacity:.8;margin-bottom:3px;">John Doe · Primary Account</div>
+          <div style="font-size:13px;opacity:.8;margin-bottom:3px;">Moses Shinana · Primary Account</div>
           <div style="font-size:12px;opacity:.55;letter-spacing:2px;margin-bottom:18px;">NAMBK •••• •••• 4521</div>
           <div style="font-size:11px;opacity:.7;">AVAILABLE BALANCE</div>
           <div style="font-size:34px;font-weight:800;">N$ 24,850.00</div>
@@ -596,8 +549,6 @@ code{background:#F0F4FA;padding:2px 6px;border-radius:4px;font-size:12px;font-fa
 
 <!-- ════════════════════════════════════════════════════
      SCREEN 7: DATABASE VIEWER (Lecturer Tool)
-     Shows exactly what data the server stores —
-     demonstrating that NO biometric data is stored.
 ════════════════════════════════════════════════════ -->
 <div class="screen" id="s-dbview">
   <div class="topbar">
@@ -657,15 +608,7 @@ After enrolling a fingerprint, you will see:
 <script src="app.js"></script>
 
 <script>
-/**
- * ============================================================
- *  UI CONTROLLER — inline JavaScript
- *  Handles screen navigation and calls NamBankAuth functions
- *  from app.js for all WebAuthn operations.
- * ============================================================
- */
 
-// ── Navigation ─────────────────────────────────────────────
 function goTo(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -684,11 +627,6 @@ function goToEnroll() {
   goTo('s-enroll');
 }
 
-// ── Bio Login Entry Point ──────────────────────────────────
-/**
- * Called when user taps "Sign In with Fingerprint".
- * Navigates to auth screen and immediately triggers WebAuthn.
- */
 function initBioLogin() {
   if (!window.PublicKeyCredential) {
     alert('WebAuthn is not supported in this browser.\nPlease use Chrome, Safari, Edge, or Firefox.');
@@ -697,11 +635,11 @@ function initBioLogin() {
   setScan('auth-scan','auth-status','auth-hint','','Activating fingerprint sensor…','Your fingerprint will be requested now');
   hideErr('auth-err');
   goTo('s-auth');
-  // Small delay for screen transition, then trigger real fingerprint prompt
+  
   setTimeout(runAuth, 350);
 }
 
-// ── WebAuthn Auth ──────────────────────────────────────────
+
 let authRunning = false;
 
 async function runAuth() {
@@ -712,7 +650,7 @@ async function runAuth() {
   setScan('auth-scan','auth-status','auth-hint','scanning','Scanning your fingerprint…','Place your finger on the sensor now');
 
   try {
-    // ★ Calls navigator.credentials.get() in app.js → triggers real fingerprint ★
+    
     const result = await NamBankAuth.authenticateFingerprint(username);
 
     setScan('auth-scan','auth-status','auth-hint','success','✓ Fingerprint Verified!','Redirecting to your account…');
@@ -735,12 +673,10 @@ async function runAuth() {
   }
 }
 
-// Allow tap-to-retry on the scanner
 function retryAuth() {
   if (!authRunning) runAuth();
 }
 
-// ── WebAuthn Enrolment ─────────────────────────────────────
 function checkConsent() {
   if (!['c1','c2','c3'].every(id => document.getElementById(id).checked)) {
     showErr('enroll-err','Please accept all three items to continue.');
@@ -748,7 +684,7 @@ function checkConsent() {
   }
   hideErr('enroll-err');
   showEnrollStep(1);
-  // Auto-trigger enrolment after step transition
+
   setTimeout(runEnroll, 400);
 }
 
@@ -762,7 +698,7 @@ async function runEnroll() {
   setScan('enroll-scan','enroll-status',null,'scanning','Activating fingerprint sensor…',null);
 
   try {
-    // ★ Calls navigator.credentials.create() in app.js → triggers real fingerprint ★
+  
     const result = await NamBankAuth.enrollFingerprint(username);
 
     setScan('enroll-scan','enroll-status',null,'success','✓ Fingerprint enrolled!',null);
@@ -771,7 +707,7 @@ async function runEnroll() {
 
   } catch (err) {
     if (err.name === 'InvalidStateError') {
-      // Credential already exists — treat as success
+  
       setScan('enroll-scan','enroll-status',null,'success','Already enrolled — you can log in',null);
       setTimeout(() => showEnrollStep(2), 800);
     } else if (err.name === 'NotAllowedError') {
@@ -796,7 +732,6 @@ function retryEnroll() {
   if (!enrollRunning) runEnroll();
 }
 
-// ── Enrolment Step UI ──────────────────────────────────────
 const E_TITLES = ['Consent & Information','Scan Your Fingerprint','Enrolment Complete'];
 const E_SUBS   = ['Read and accept before registering','Your device fingerprint prompt is active','Your credential is ready to use'];
 
@@ -808,7 +743,6 @@ function showEnrollStep(p) {
   document.getElementById('e-sub').textContent     = E_SUBS[p];
 }
 
-// ── Dashboard ──────────────────────────────────────────────
 function refreshDash() {
   const S = NamBankAuth.AppState;
   const t = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -852,7 +786,6 @@ function dtab(el, id) {
   if (id === 'd-sec') refreshDash();
 }
 
-// ── Database View ──────────────────────────────────────────
 async function loadDbView() {
   const out = document.getElementById('db-output');
   out.textContent = 'Loading from server…';
@@ -864,7 +797,6 @@ async function loadDbView() {
   }
 }
 
-// ── Audit Log ──────────────────────────────────────────────
 function addLogEntry(type, msg) {
   const cls  = {success:'dg',fail:'dr',gold:'do'}[type] || 'do';
   const time = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -894,7 +826,6 @@ async function refreshAuditLog() {
   }
 }
 
-// ── Scanner UI Helpers ─────────────────────────────────────
 function setScan(sid, stid, shid, cls, status, hint) {
   document.getElementById(sid).className = 'scanner' + (cls ? ' '+cls : '');
   if (stid) document.getElementById(stid).textContent = status;
@@ -909,7 +840,6 @@ function showErr(id, msg) {
 }
 function hideErr(id) { document.getElementById(id).style.display = 'none'; }
 
-// ── Initialise ─────────────────────────────────────────────
 refreshDash();
 </script>
 </body>
